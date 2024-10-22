@@ -1,0 +1,32 @@
+cc_binary {
+    name: "codec",
+
+    srcs: [
+        "codec.cpp",
+        "SimplePlayer.cpp",
+    ],
+
+    header_libs: [
+        "libmediadrm_headers",
+        "libmediametrics_headers",
+        "libstagefright_headers",
+    ],
+
+    shared_libs: [
+        "libstagefright",
+        "liblog",
+        "libutils",
+        "libbinder",
+        "libstagefright_foundation",
+        "libmedia",
+        "libmedia_omx",
+        "libaudioclient",
+        "libui",
+        "libgui",
+        "libcutils",
+    ],
+
+    cflags: [
+        "-Wno-multichar",
+    ],
+}
