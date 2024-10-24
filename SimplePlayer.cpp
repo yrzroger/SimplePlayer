@@ -40,7 +40,8 @@ SimplePlayer::SimplePlayer()
       mDoMoreStuffGeneration(0),
       mStartTimeRealUs(-1ll),
       mEncounteredInputEOS(false),
-      mEncounteredOutputEOS(false) {
+      mEncounteredOutputEOS(false),
+      firstFrameObserved(false) {
 }
 
 SimplePlayer::~SimplePlayer() {
@@ -569,6 +570,13 @@ status_t SimplePlayer::onDoMoreStuff() {
                     }
 
                     if (release) {
+                        if(!firstFrameObserved) {
+                            firstFrameObserved = true;
+                            sp<CodecEventListener> listener(mListener.promote());
+                            if (listener != nullptr) {
+                                listener->onFirstFrameAvailable();
+                            }
+                        }
                         state->mCodec->renderOutputBufferAndRelease(
                                 info->mIndex);
                     }

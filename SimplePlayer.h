@@ -29,6 +29,10 @@ class MediaCodecBuffer;
 struct NuMediaExtractor;
 class Surface;
 
+struct CodecEventListener: virtual public RefBase {
+    virtual void onFirstFrameAvailable() = 0;
+};
+
 struct SimplePlayer : public AHandler {
     SimplePlayer();
 
@@ -39,6 +43,7 @@ struct SimplePlayer : public AHandler {
     status_t stop();
     status_t reset();
     bool isPlaying();
+    void registerListener(const wp<CodecEventListener>& listener) { mListener = listener; }
 
 protected:
     virtual ~SimplePlayer();
@@ -96,6 +101,8 @@ private:
     int64_t mStartTimeRealUs;
     bool mEncounteredInputEOS;
     bool mEncounteredOutputEOS;
+    bool firstFrameObserved;
+    wp<CodecEventListener> mListener;
 
     status_t onPrepare();
     status_t onStart();

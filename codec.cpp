@@ -120,11 +120,21 @@ int main(int argc, char **argv) {
     sp<SimplePlayer> player = new SimplePlayer;
     looper->registerHandler(player);
 
+    class CodecListener : public CodecEventListener {
+    public:
+        CodecListener() {}
+        virtual ~CodecListener() {}
+        virtual void onFirstFrameAvailable() {
+            ALOGD("onFirstFrameAvailable");
+        }
+    };
+    sp<CodecListener> listener = new CodecListener;
+    player->registerListener(listener);
     player->setDataSource(argv[0]);
     player->setSurface(surface->getIGraphicBufferProducer());
     player->start();
     while(player->isPlaying())
-        usleep(100000);
+        usleep(50000);
     player->stop();
     player->reset();
 
