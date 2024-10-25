@@ -68,6 +68,12 @@ private:
         kWhatDoMoreStuff,
     };
 
+    enum SourceType {
+        VIDEO = 0,
+        AUDIO = 1,
+        NUM_SOURCE_TYPES = 2
+    };
+
     struct BufferInfo {
         size_t mIndex;
         size_t mOffset;
@@ -84,6 +90,7 @@ private:
 
         List<size_t> mAvailInputBufferIndices;
         List<BufferInfo> mAvailOutputBufferInfos;
+        SourceType mType;
 
         sp<AudioTrack> mAudioTrack;
         uint32_t mNumFramesWritten;

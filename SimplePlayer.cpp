@@ -305,8 +305,9 @@ status_t SimplePlayer::onPrepare() {
         CHECK(format->findString("mime", &mime));
 
         bool isVideo = !strncasecmp(mime.c_str(), "video/", 6);
+        bool isAudio = !strncasecmp(mime.c_str(), "audio/", 6);
 
-        if (!haveAudio && !strncasecmp(mime.c_str(), "audio/", 6)) {
+        if (!haveAudio && isAudio) {
             haveAudio = true;
         } else if (!haveVideo && isVideo) {
             haveVideo = true;
@@ -320,6 +321,9 @@ status_t SimplePlayer::onPrepare() {
         CodecState *state =
             &mStateByTrackIndex.editValueAt(
                     mStateByTrackIndex.add(i, CodecState()));
+
+        if(isVideo) state->mType = VIDEO;
+        if(isAudio) state->mType = AUDIO;
 
         state->mNumFramesWritten = 0;
         state->mCodec = MediaCodec::CreateByType(
@@ -433,13 +437,13 @@ status_t SimplePlayer::onDoMoreStuff() {
             err = state->mCodec->dequeueInputBuffer(&index);
 
             if (err == OK) {
-                ALOGV("dequeued input buffer on track %zu",
-                      mStateByTrackIndex.keyAt(i));
+                ALOGV("dequeued input buffer on track %zu,type %zu",
+                      mStateByTrackIndex.keyAt(i), state->mType);
 
                 state->mAvailInputBufferIndices.push_back(index);
             } else {
-                ALOGV("dequeueInputBuffer on track %zu returned %d",
-                      mStateByTrackIndex.keyAt(i), err);
+                ALOGV("dequeueInputBuffer on track %zu,type %zu returned %d",
+                      mStateByTrackIndex.keyAt(i), state->mType, err);
             }
         } while (err == OK);
 
@@ -453,8 +457,8 @@ status_t SimplePlayer::onDoMoreStuff() {
                     &info.mFlags);
 
             if (err == OK) {
-                ALOGV("dequeued output buffer on track %zu",
-                      mStateByTrackIndex.keyAt(i));
+                ALOGV("dequeued output buffer on track %zu,type %zu",
+                      mStateByTrackIndex.keyAt(i), state->mType);
 
                 state->mAvailOutputBufferInfos.push_back(info);
             } else if (err == INFO_FORMAT_CHANGED) {
@@ -464,8 +468,8 @@ status_t SimplePlayer::onDoMoreStuff() {
                 err = state->mCodec->getOutputBuffers(&state->mBuffers[1]);
                 CHECK_EQ(err, (status_t)OK);
             } else {
-                ALOGV("dequeueOutputBuffer on track %zu returned %d",
-                      mStateByTrackIndex.keyAt(i), err);
+                ALOGV("dequeueOutputBuffer on track %zu,type %zu returned %d",
+                      mStateByTrackIndex.keyAt(i), state->mType, err);
             }
         } while (err == OK
                 || err == INFO_FORMAT_CHANGED
@@ -494,7 +498,7 @@ status_t SimplePlayer::onDoMoreStuff() {
                         0,
                         0,
                         MediaCodec::BUFFER_FLAG_EOS);
-                ALOGI("encountered input EOS on track %zu, %s.", trackIndex, statusToString(err).c_str());
+                ALOGI("encountered input EOS on track %zu,type %zu %s.", trackIndex, state->mType, statusToString(err).c_str());
                 CHECK_EQ(err, (status_t)OK);
             }
             break;
@@ -522,7 +526,7 @@ status_t SimplePlayer::onDoMoreStuff() {
                     0);
             CHECK_EQ(err, (status_t)OK);
 
-            ALOGV("enqueued input data on track %zu", trackIndex);
+            ALOGV("enqueued input data on track %zu,type %zu", trackIndex, state->mType);
 
             err = mExtractor->advance();
             //CHECK_EQ(err, (status_t)OK);
@@ -542,7 +546,7 @@ status_t SimplePlayer::onDoMoreStuff() {
             BufferInfo *info = &*state->mAvailOutputBufferInfos.begin();
 
             if(info->mFlags & MediaCodec::BUFFER_FLAG_EOS) {
-                ALOGI("encountered output EOS on track %zu.", trackIndex);
+                ALOGI("encountered output EOS on track %zu,type %zu.", trackIndex, state->mType);
                 mEncounteredOutputEOS = true;
                 return ERROR_END_OF_STREAM;
             }
@@ -554,8 +558,8 @@ status_t SimplePlayer::onDoMoreStuff() {
                 bool release = true;
 
                 if (lateByUs > 30000ll) {
-                    ALOGI("track %zu buffer late by %lld us, dropping.",
-                          mStateByTrackIndex.keyAt(i), (long long)lateByUs);
+                    ALOGI("track %zu,type %zu, buffer late by %lld us, dropping.",
+                          mStateByTrackIndex.keyAt(i), state->mType, (long long)lateByUs);
                     state->mCodec->releaseOutputBuffer(info->mIndex);
                 } else {
                     if (state->mAudioTrack != NULL) {
@@ -570,7 +574,7 @@ status_t SimplePlayer::onDoMoreStuff() {
                     }
 
                     if (release) {
-                        if(!firstFrameObserved) {
+                        if(!firstFrameObserved && state->mType == VIDEO) {
                             firstFrameObserved = true;
                             sp<CodecEventListener> listener(mListener.promote());
                             if (listener != nullptr) {
@@ -591,8 +595,8 @@ status_t SimplePlayer::onDoMoreStuff() {
                     break;
                 }
             } else {
-                ALOGV("track %zu buffer early by %lld us.",
-                      mStateByTrackIndex.keyAt(i), (long long)-lateByUs);
+                ALOGV("track %zu,type %zu, buffer early by %lld us.",
+                      mStateByTrackIndex.keyAt(i), state->mType, (long long)-lateByUs);
                 break;
             }
         }
