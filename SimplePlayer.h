@@ -87,6 +87,7 @@ private:
         sp<MediaCodec> mCodec;
         Vector<sp<ABuffer> > mCSD;
         Vector<sp<MediaCodecBuffer> > mBuffers[2];
+        Vector<sp<ABuffer> > mSampleData;
 
         List<size_t> mAvailInputBufferIndices;
         List<BufferInfo> mAvailOutputBufferInfos;
@@ -104,10 +105,10 @@ private:
     sp<ALooper> mCodecLooper;
     KeyedVector<size_t, CodecState> mStateByTrackIndex;
     int32_t mDoMoreStuffGeneration;
+    int32_t mEndOfStream;
 
     int64_t mStartTimeRealUs;
     bool mEncounteredInputEOS;
-    bool mEncounteredOutputEOS;
     bool firstFrameObserved;
     wp<CodecEventListener> mListener;
 

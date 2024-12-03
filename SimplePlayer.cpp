@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-//#define LOG_NDEBUG 0
+#define LOG_NDEBUG 0
 #define LOG_TAG "SimplePlayer"
 #include <utils/Log.h>
 
@@ -38,9 +38,9 @@ namespace android {
 SimplePlayer::SimplePlayer()
     : mState(UNINITIALIZED),
       mDoMoreStuffGeneration(0),
+      mEndOfStream(0),
       mStartTimeRealUs(-1ll),
       mEncounteredInputEOS(false),
-      mEncounteredOutputEOS(false),
       firstFrameObserved(false) {
 }
 
@@ -108,7 +108,7 @@ status_t SimplePlayer::reset() {
 }
 
 bool SimplePlayer::isPlaying() {
-    return !mEncounteredOutputEOS;
+    return mEndOfStream;
 }
 
 void SimplePlayer::onMessageReceived(const sp<AMessage> &msg) {
@@ -266,7 +266,7 @@ void SimplePlayer::onMessageReceived(const sp<AMessage> &msg) {
             status_t err = onDoMoreStuff();
 
             if (err == OK) {
-                msg->post(10000ll);
+                msg->post(5000ll);
             }
             break;
         }
@@ -324,6 +324,8 @@ status_t SimplePlayer::onPrepare() {
 
         if(isVideo) state->mType = VIDEO;
         if(isAudio) state->mType = AUDIO;
+
+        mEndOfStream |= 0x1 << state->mType;
 
         state->mNumFramesWritten = 0;
         state->mCodec = MediaCodec::CreateByType(
@@ -411,7 +413,7 @@ status_t SimplePlayer::onReset() {
 
     for (size_t i = 0; i < mStateByTrackIndex.size(); ++i) {
         CodecState *state = &mStateByTrackIndex.editValueAt(i);
-
+        state->mSampleData.clear();
         CHECK_EQ(state->mCodec->release(), (status_t)OK);
     }
 
@@ -428,6 +430,33 @@ status_t SimplePlayer::onReset() {
 
 status_t SimplePlayer::onDoMoreStuff() {
     ALOGV("onDoMoreStuff");
+
+    for (size_t i = 0; i < mStateByTrackIndex.size(); ++i) {
+        size_t trackIndex;
+        status_t err = mExtractor->getSampleTrackIndex(&trackIndex);
+        CodecState *state = &mStateByTrackIndex.editValueFor(trackIndex);
+
+        if(state->mSampleData.size() <= 10) {
+            if(err == OK) {
+                size_t sampleSize = 0;
+                CHECK_EQ(mExtractor->getSampleSize(&sampleSize), (status_t)OK);
+
+                sp<ABuffer> abuffer = new ABuffer(sampleSize);
+                CHECK_EQ(mExtractor->readSampleData(abuffer), (status_t)OK);
+
+                int64_t timeUs = 0;
+                CHECK_EQ(mExtractor->getSampleTime(&timeUs), (status_t)OK);
+                abuffer->meta()->setInt64("timeUs" , timeUs);
+
+                state->mSampleData.push_back(abuffer);
+                ALOGV("push_back => track %zu,type %zu, sample data size=%d", trackIndex, state->mType, state->mSampleData.size());
+                mExtractor->advance();
+            } else {
+                mEncounteredInputEOS = true;
+            }
+        }
+    }
+
     for (size_t i = 0; i < mStateByTrackIndex.size(); ++i) {
         CodecState *state = &mStateByTrackIndex.editValueAt(i);
 
@@ -438,12 +467,12 @@ status_t SimplePlayer::onDoMoreStuff() {
 
             if (err == OK) {
                 ALOGV("dequeued input buffer on track %zu,type %zu",
-                      mStateByTrackIndex.keyAt(i), state->mType);
+                    mStateByTrackIndex.keyAt(i), state->mType);
 
                 state->mAvailInputBufferIndices.push_back(index);
             } else {
                 ALOGV("dequeueInputBuffer on track %zu,type %zu returned %d",
-                      mStateByTrackIndex.keyAt(i), state->mType, err);
+                    mStateByTrackIndex.keyAt(i), state->mType, err);
             }
         } while (err == OK);
 
@@ -457,8 +486,8 @@ status_t SimplePlayer::onDoMoreStuff() {
                     &info.mFlags);
 
             if (err == OK) {
-                ALOGV("dequeued output buffer on track %zu,type %zu",
-                      mStateByTrackIndex.keyAt(i), state->mType);
+                ALOGV("OK: dequeued output buffer on track %zu,type %zu",
+                    mStateByTrackIndex.keyAt(i), state->mType);
 
                 state->mAvailOutputBufferInfos.push_back(info);
             } else if (err == INFO_FORMAT_CHANGED) {
@@ -468,27 +497,20 @@ status_t SimplePlayer::onDoMoreStuff() {
                 err = state->mCodec->getOutputBuffers(&state->mBuffers[1]);
                 CHECK_EQ(err, (status_t)OK);
             } else {
-                ALOGV("dequeueOutputBuffer on track %zu,type %zu returned %d",
-                      mStateByTrackIndex.keyAt(i), state->mType, err);
+                ALOGV("ERROR: dequeueOutputBuffer on track %zu,type %zu returned %d",
+                    mStateByTrackIndex.keyAt(i), state->mType, err);
             }
         } while (err == OK
                 || err == INFO_FORMAT_CHANGED
                 || err == INFO_OUTPUT_BUFFERS_CHANGED);
-    }
 
-    size_t trackIndex;
-    for (;;) {
-        
-        status_t err = mExtractor->getSampleTrackIndex(&trackIndex);
-        CodecState *state = &mStateByTrackIndex.editValueFor(trackIndex);
-            if (state->mAvailInputBufferIndices.empty()) {
-                break;
+        if (state->mAvailInputBufferIndices.empty()) {
+            ALOGI("available InputBuffer empty on track %zu,type %zu.", i, state->mType);
+            continue;
         }
 
-        if (err != OK /*ERROR_END_OF_STREAM*/) {
-            if(!mEncounteredInputEOS) {
-                mEncounteredInputEOS = true;
-
+        if (state->mSampleData.empty()) {
+            if(mEncounteredInputEOS) {
                 size_t index = *state->mAvailInputBufferIndices.begin();
                 state->mAvailInputBufferIndices.erase(
                         state->mAvailInputBufferIndices.begin());
@@ -498,11 +520,13 @@ status_t SimplePlayer::onDoMoreStuff() {
                         0,
                         0,
                         MediaCodec::BUFFER_FLAG_EOS);
-                ALOGI("encountered input EOS on track %zu,type %zu %s.", trackIndex, state->mType, statusToString(err).c_str());
+                ALOGI("encountered input EOS on track %zu,type %zu %s.", i, state->mType, statusToString(err).c_str());
                 CHECK_EQ(err, (status_t)OK);
             }
-            break;
-        } else {
+            continue;
+        }
+
+        do {
             size_t index = *state->mAvailInputBufferIndices.begin();
             state->mAvailInputBufferIndices.erase(
                     state->mAvailInputBufferIndices.begin());
@@ -510,13 +534,13 @@ status_t SimplePlayer::onDoMoreStuff() {
             const sp<MediaCodecBuffer> &dstBuffer =
                 state->mBuffers[0].itemAt(index);
             sp<ABuffer> abuffer = new ABuffer(dstBuffer->base(), dstBuffer->capacity());
-
-            err = mExtractor->readSampleData(abuffer);
-            CHECK_EQ(err, (status_t)OK);
-            dstBuffer->setRange(abuffer->offset(), abuffer->size());
-
-            int64_t timeUs;
-            CHECK_EQ(mExtractor->getSampleTime(&timeUs), (status_t)OK);
+            int64_t timeUs = 0;
+            sp<ABuffer> srcBuffer = *state->mSampleData.begin();
+            state->mSampleData.erase(state->mSampleData.begin());
+            memcpy(dstBuffer->base(), srcBuffer->data(), srcBuffer->size());
+            dstBuffer->setRange(0, srcBuffer->size());
+            srcBuffer->meta()->findInt64("timeUs", &timeUs);
+            ALOGV("erase => track %zu,type %zu, sample data size=%d", i, state->mType, state->mSampleData.size());
 
             err = state->mCodec->queueInputBuffer(
                     index,
@@ -526,11 +550,9 @@ status_t SimplePlayer::onDoMoreStuff() {
                     0);
             CHECK_EQ(err, (status_t)OK);
 
-            ALOGV("enqueued input data on track %zu,type %zu", trackIndex, state->mType);
-
-            err = mExtractor->advance();
-            //CHECK_EQ(err, (status_t)OK);
-        }
+            ALOGV("enqueued input data on track %zu,type %zu,timeUs=%lld", i, state->mType, timeUs);
+        } while (!state->mSampleData.empty()
+                && !state->mAvailInputBufferIndices.empty());
     }
 
     int64_t nowUs = ALooper::GetNowUs();
@@ -546,9 +568,10 @@ status_t SimplePlayer::onDoMoreStuff() {
             BufferInfo *info = &*state->mAvailOutputBufferInfos.begin();
 
             if(info->mFlags & MediaCodec::BUFFER_FLAG_EOS) {
-                ALOGI("encountered output EOS on track %zu,type %zu.", trackIndex, state->mType);
-                mEncounteredOutputEOS = true;
-                return ERROR_END_OF_STREAM;
+                mEndOfStream &= ~(0x1 << state->mType);
+                ALOGI("encountered output EOS on track %zu,type %zu, mEndOfStream %x.", i, state->mType, mEndOfStream);
+                if(!mEndOfStream)
+                    return ERROR_END_OF_STREAM;
             }
 
             int64_t whenRealUs = info->mPresentationTimeUs + mStartTimeRealUs;
@@ -557,7 +580,7 @@ status_t SimplePlayer::onDoMoreStuff() {
             if (lateByUs > -10000ll) {
                 bool release = true;
 
-                if (lateByUs > 30000ll) {
+                if (lateByUs > 50000ll) {
                     ALOGI("track %zu,type %zu, buffer late by %lld us, dropping.",
                           mStateByTrackIndex.keyAt(i), state->mType, (long long)lateByUs);
                     state->mCodec->releaseOutputBuffer(info->mIndex);
