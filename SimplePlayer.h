@@ -18,6 +18,8 @@
 #include <media/stagefright/foundation/AString.h>
 #include <utils/KeyedVector.h>
 
+#include "AudioPlay.h"
+
 namespace android {
 
 struct ABuffer;
@@ -93,7 +95,8 @@ private:
         List<BufferInfo> mAvailOutputBufferInfos;
         SourceType mType;
 
-        sp<AudioTrack> mAudioTrack;
+        AudioPlay* mAudioPlay;  
+        
         uint32_t mNumFramesWritten;
     };
 

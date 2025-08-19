@@ -19,6 +19,7 @@
 #include <utils/Log.h>
 
 #include "SimplePlayer.h"
+#include "AudioPlay.h"
 
 #include <gui/Surface.h>
 
@@ -585,7 +586,7 @@ status_t SimplePlayer::onDoMoreStuff() {
                           mStateByTrackIndex.keyAt(i), state->mType, (long long)lateByUs);
                     state->mCodec->releaseOutputBuffer(info->mIndex);
                 } else {
-                    if (state->mAudioTrack != NULL) {
+                    if (state->mAudioPlay != NULL) {
                         const sp<MediaCodecBuffer> &srcBuffer =
                             state->mBuffers[1].itemAt(info->mIndex);
 
@@ -646,12 +647,8 @@ status_t SimplePlayer::onOutputFormatChanged(
         CHECK(format->findInt32("channel-count", &channelCount));
         CHECK(format->findInt32("sample-rate", &sampleRate));
 
-        state->mAudioTrack = new AudioTrack(
-                AUDIO_STREAM_MUSIC,
-                sampleRate,
-                AUDIO_FORMAT_PCM_16_BIT,
-                audio_channel_out_mask_from_count(channelCount),
-                0);
+        state->mAudioPlay = new AudioPlay();
+        state->mAudioPlay->init(sampleRate, channelCount);
 
         state->mNumFramesWritten = 0;
     }
@@ -661,52 +658,52 @@ status_t SimplePlayer::onOutputFormatChanged(
 
 void SimplePlayer::renderAudio(
         CodecState *state, BufferInfo *info, const sp<MediaCodecBuffer> &buffer) {
-    CHECK(state->mAudioTrack != NULL);
+    CHECK(state->mAudioPlay != NULL);
 
-    if (state->mAudioTrack->stopped()) {
-        state->mAudioTrack->start();
+    if (state->mAudioPlay->stopped()) {
+        state->mAudioPlay->start();
     }
 
-    uint32_t numFramesPlayed;
-    CHECK_EQ(state->mAudioTrack->getPosition(&numFramesPlayed), (status_t)OK);
+    //uint32_t numFramesPlayed;
+    //CHECK_EQ(state->mAudioTrack->getPosition(&numFramesPlayed), (status_t)OK);
 
-    uint32_t numFramesAvailableToWrite =
-        state->mAudioTrack->frameCount()
-            - (state->mNumFramesWritten - numFramesPlayed);
-
-    size_t numBytesAvailableToWrite =
-        numFramesAvailableToWrite * state->mAudioTrack->frameSize();
-
+    //uint32_t numFramesAvailableToWrite =
+    //    state->mAudioTrack->frameCount()
+    //        - (state->mNumFramesWritten - numFramesPlayed);
+    //
+    //size_t numBytesAvailableToWrite =
+    //    numFramesAvailableToWrite * state->mAudioTrack->frameSize();
+    //
     size_t copy = info->mSize;
-    if (copy > numBytesAvailableToWrite) {
-        copy = numBytesAvailableToWrite;
-    }
-
-    if (copy == 0) {
-        return;
-    }
+    //if (copy > numBytesAvailableToWrite) {
+    //    copy = numBytesAvailableToWrite;
+    //}
+    //
+    //if (copy == 0) {
+    //    return;
+    //}
 
     int64_t startTimeUs = ALooper::GetNowUs();
 
-    ssize_t nbytes = state->mAudioTrack->write(
+    ssize_t nbytes = state->mAudioPlay->write(
             buffer->base() + info->mOffset, copy);
 
     CHECK_EQ(nbytes, (ssize_t)copy);
 
     int64_t delayUs = ALooper::GetNowUs() - startTimeUs;
 
-    uint32_t numFramesWritten = nbytes / state->mAudioTrack->frameSize();
-
-    if (delayUs > 2000ll) {
-        ALOGW("AudioTrack::write took %lld us, numFramesAvailableToWrite=%u, "
-              "numFramesWritten=%u",
-              (long long)delayUs, numFramesAvailableToWrite, numFramesWritten);
-    }
-
-    info->mOffset += nbytes;
-    info->mSize -= nbytes;
-
-    state->mNumFramesWritten += numFramesWritten;
+    //uint32_t numFramesWritten = nbytes / state->mAudioTrack->frameSize();
+    //
+    //if (delayUs > 2000ll) {
+    //    ALOGW("AudioTrack::write took %lld us, numFramesAvailableToWrite=%u, "
+    //          "numFramesWritten=%u",
+    //          (long long)delayUs, numFramesAvailableToWrite, numFramesWritten);
+    //}
+    //
+    //info->mOffset += nbytes;
+    //info->mSize -= nbytes;
+    //
+    //state->mNumFramesWritten += numFramesWritten;
 }
 
 }  // namespace android

@@ -4,6 +4,7 @@ cc_binary {
     srcs: [
         "simple_player.cpp",
         "SimplePlayer.cpp",
+        "AudioPlay.cpp"
     ],
 
     header_libs: [
@@ -24,6 +25,7 @@ cc_binary {
         "libui",
         "libgui",
         "libcutils",
+        "libOpenSLES",
     ],
 
     cflags: [
