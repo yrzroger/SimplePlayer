@@ -15,7 +15,7 @@
  */
 
 //#define LOG_NDEBUG 0
-#define LOG_TAG "codec"
+#define LOG_TAG "simple_player"
 #include <inttypes.h>
 #include <utils/Log.h>
 
@@ -43,7 +43,7 @@
 
 static void usage(const char *me) {
     fprintf(stderr, "usage: %s \n"
-                    "\tcodec /sdcard/video.mp4 \n",
+                    "\tsimple_player /sdcard/video.mp4 \n",
                     me);
     exit(1);
 }

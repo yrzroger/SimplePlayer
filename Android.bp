@@ -1,8 +1,8 @@
 cc_binary {
-    name: "codec",
+    name: "simple_player",
 
     srcs: [
-        "codec.cpp",
+        "simple_player.cpp",
         "SimplePlayer.cpp",
     ],
 
