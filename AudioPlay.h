@@ -1,13 +1,21 @@
-#ifndef PCM_PLAYER_H
-#define PCM_PLAYER_H
+/*
+ * Copyright (C) 二的次方
+ *
+ */
+
+#ifndef AUDIO_PLAY_H
+#define AUDIO_PLAY_H
 
 #include <SLES/OpenSLES.h>
 #include <SLES/OpenSLES_Android.h>
 #include <cstdint>
 #include <SafeQueue.h>
 #include <vector>
+#include <utils/RefBase.h>
 
-class AudioPlay {
+namespace android {
+
+class AudioPlay : public RefBase {
 public:
     AudioPlay();
     ~AudioPlay();
@@ -39,7 +47,7 @@ private:
     SLObjectItf playerObject_ = nullptr;
     SLPlayItf playerPlay_ = nullptr;
     SLAndroidSimpleBufferQueueItf bufferQueue_ = nullptr;
-    SLVolumeItf playerVolume_;
+    SLVolumeItf playerVolume_ = nullptr;
     PlayState playState_ = STOPPED;
 
     // PCM数据队列
@@ -49,8 +57,11 @@ private:
 
     // 静态回调
     static void bufferQueueCallback(SLAndroidSimpleBufferQueueItf bq, void *context);
-    void render();
 
+    // 播放一组音频数据
+    void renderFrame();
 };
 
-#endif // PCM_PLAYER_H
+}  // namespace android
+
+#endif // AUDIO_PLAY_H

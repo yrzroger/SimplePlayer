@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 二的次方
+ *
+ */
+
 //#define LOG_NDEBUG 0
 #define LOG_TAG "AudioPlay"
 
@@ -5,12 +10,14 @@
 #include <cstring>
 #include <utils/Log.h>
 
+namespace android {
+
 AudioPlay::AudioPlay() {}
 AudioPlay::~AudioPlay() { stop(); }
 
 int AudioPlay::init(int sampleRate, int channels) {
     SLresult result;
-    ALOGD("init 3");
+
     // 创建引擎
     result = slCreateEngine(&engineObject_, 0, nullptr, 0, nullptr, nullptr);
     if (result != SL_RESULT_SUCCESS) return -1;
@@ -88,14 +95,12 @@ int AudioPlay::init(int sampleRate, int channels) {
         return -1;
     }
 
-
     // 注册回调
     result = (*bufferQueue_)->RegisterCallback(bufferQueue_, bufferQueueCallback, this);
     if (result != SL_RESULT_SUCCESS) return -1;
 
     // 设置初始状态为停止
     (*playerPlay_)->SetPlayState(playerPlay_, SL_PLAYSTATE_STOPPED);
-    ALOGD("init 1");
 
     return 0;
 }
@@ -107,7 +112,7 @@ int AudioPlay::write(const uint8_t* pData, size_t size) {
     memcpy(&frame[0], pData, size);
 
     audioFrames_.enqueue(frame);
-    
+
     std::unique_lock<std::mutex> lock(stateLock_);
     stateCondition_.notify_one();
 
@@ -124,39 +129,45 @@ int AudioPlay::start() {
     // 设置为播放
     (*playerPlay_)->SetPlayState(playerPlay_, SL_PLAYSTATE_PLAYING);
     playState_ = PLAYING;
-    ALOGD("start");
-    
-    // 主动激活bufferQueueCallback
+
+    // 主动激活bufferQueueCallback,填充播放一组空数据
     std::vector<uint8_t> frame(8);
     audioFrames_.enqueue(frame);
-    render();
+    renderFrame();
 
     return 0;
 }
 
 void AudioPlay::stop() {
+    playState_ = STOPPED;
     std::unique_lock<std::mutex> lock(stateLock_);
+    stateCondition_.notify_one();
+    lock.unlock();
+    
     if (playerObject_) {
         (*playerPlay_)->SetPlayState(playerPlay_, SL_PLAYSTATE_STOPPED);
         (*playerObject_)->Destroy(playerObject_);
         playerObject_ = nullptr;
         playerPlay_ = nullptr;
         bufferQueue_ = nullptr;
+        playerVolume_ = nullptr;
     }
+
     if (outputMixObject_) {
         (*outputMixObject_)->Destroy(outputMixObject_);
         outputMixObject_ = nullptr;
     }
+
     if (engineObject_) {
         (*engineObject_)->Destroy(engineObject_);
         engineObject_ = nullptr;
         engineEngine_ = nullptr;
     }
-    playState_ = STOPPED;
-    stateCondition_.notify_one();
 }
 
-void AudioPlay::render() {
+void AudioPlay::renderFrame() {
+    if(playState_ != PLAYING) return;
+    
     std::unique_lock<std::mutex> lock(stateLock_);
     if(audioFrames_.empty()) {
         stateCondition_.wait(lock);
@@ -164,15 +175,15 @@ void AudioPlay::render() {
     lock.unlock();
 
     if(playState_ != PLAYING) return;
-    
+
     std::vector<uint8_t> frame = audioFrames_.dequeue();
     (*bufferQueue_)->Enqueue(bufferQueue_, &frame[0], frame.size());
-    ALOGD("render 3 %d", frame.size());
 }
 
-// 简单地把数据循环播放
+// this callback handler is called every time a buffer finishes playing
 void AudioPlay::bufferQueueCallback(SLAndroidSimpleBufferQueueItf bq, void *context) {
-    ALOGD("bufferQueueCallback");
     AudioPlay* self = static_cast<AudioPlay*>(context);
-    self->render();
+    self->renderFrame();
 }
+
+}  // namespace android

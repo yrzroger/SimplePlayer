@@ -701,7 +701,7 @@ void SimplePlayer::renderAudio(
     //}
     //
     //info->mOffset += nbytes;
-    //info->mSize -= nbytes;
+    info->mSize -= nbytes;
     //
     //state->mNumFramesWritten += numFramesWritten;
 }

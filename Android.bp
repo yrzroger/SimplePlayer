@@ -30,5 +30,6 @@ cc_binary {
 
     cflags: [
         "-Wno-multichar",
+        "-Wno-unused-parameter",
     ],
 }

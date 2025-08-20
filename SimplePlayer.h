@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef SIMPLE_PLAYER_H
+#define SIMPLE_PLAYER_H
+
 #include <media/stagefright/foundation/AHandler.h>
 #include <media/stagefright/foundation/AString.h>
 #include <utils/KeyedVector.h>
@@ -95,7 +98,7 @@ private:
         List<BufferInfo> mAvailOutputBufferInfos;
         SourceType mType;
 
-        AudioPlay* mAudioPlay;  
+        sp<AudioPlay> mAudioPlay;  
         
         uint32_t mNumFramesWritten;
     };
@@ -129,3 +132,5 @@ private:
 };
 
 }  // namespace android
+
+#endif // SIMPLE_PLAYER_H
