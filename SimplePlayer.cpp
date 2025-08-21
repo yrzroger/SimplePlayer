@@ -1,17 +1,6 @@
 /*
- * Copyright (C) 2012 The Android Open Source Project
+ * Copyright (C) 二的次方
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
  */
 
 //#define LOG_NDEBUG 0
@@ -664,24 +653,9 @@ void SimplePlayer::renderAudio(
         state->mAudioPlay->start();
     }
 
-    //uint32_t numFramesPlayed;
-    //CHECK_EQ(state->mAudioTrack->getPosition(&numFramesPlayed), (status_t)OK);
-
-    //uint32_t numFramesAvailableToWrite =
-    //    state->mAudioTrack->frameCount()
-    //        - (state->mNumFramesWritten - numFramesPlayed);
-    //
-    //size_t numBytesAvailableToWrite =
-    //    numFramesAvailableToWrite * state->mAudioTrack->frameSize();
-    //
     size_t copy = info->mSize;
-    //if (copy > numBytesAvailableToWrite) {
-    //    copy = numBytesAvailableToWrite;
-    //}
-    //
-    //if (copy == 0) {
-    //    return;
-    //}
+
+    if(copy <= 0) return;
 
     int64_t startTimeUs = ALooper::GetNowUs();
 
@@ -692,18 +666,13 @@ void SimplePlayer::renderAudio(
 
     int64_t delayUs = ALooper::GetNowUs() - startTimeUs;
 
-    //uint32_t numFramesWritten = nbytes / state->mAudioTrack->frameSize();
-    //
-    //if (delayUs > 2000ll) {
-    //    ALOGW("AudioTrack::write took %lld us, numFramesAvailableToWrite=%u, "
-    //          "numFramesWritten=%u",
-    //          (long long)delayUs, numFramesAvailableToWrite, numFramesWritten);
-    //}
-    //
-    //info->mOffset += nbytes;
+    if (delayUs > 2000ll) {
+        ALOGW("AudioPlay::write took %lld us, nbytes=%u, ",
+              (long long)delayUs, nbytes);
+    }
+
     info->mSize -= nbytes;
-    //
-    //state->mNumFramesWritten += numFramesWritten;
+    state->mNumFramesWritten += 1;
 }
 
 }  // namespace android
