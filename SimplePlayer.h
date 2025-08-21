@@ -16,7 +16,6 @@ namespace android {
 
 struct ABuffer;
 struct ALooper;
-class AudioTrack;
 class IGraphicBufferProducer;
 struct MediaCodec;
 class MediaCodecBuffer;

@@ -12,7 +12,6 @@
 
 #include <gui/Surface.h>
 
-#include <media/AudioTrack.h>
 #include <mediadrm/ICrypto.h>
 #include <media/IMediaHTTPService.h>
 #include <media/MediaCodecBuffer.h>
