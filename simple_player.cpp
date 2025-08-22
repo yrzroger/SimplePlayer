@@ -41,6 +41,8 @@
 #include <gui/Surface.h>
 #include <ui/DisplayMode.h>
 
+using namespace android;
+
 static void usage(const char *me) {
     fprintf(stderr, "usage: %s \n"
                     "\tsimple_player /sdcard/video.mp4 \n",
@@ -49,8 +51,7 @@ static void usage(const char *me) {
 }
 
 int main(int argc, char **argv) {
-    using namespace android;
-
+    ALOGD("start playback ...");
     const char *me = argv[0];
 
     int res;
@@ -97,7 +98,7 @@ int main(int argc, char **argv) {
     const ssize_t displayWidth = resolution.getWidth();
     const ssize_t displayHeight = resolution.getHeight();
 
-    ALOGV("display is %zd x %zd\n", displayWidth, displayHeight);
+    ALOGD("display is %zd x %zd\n", displayWidth, displayHeight);
 
     control = composerClient->createSurface(
             String8("A Surface"),

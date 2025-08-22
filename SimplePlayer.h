@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef SIMPLE_PLAYER_H
+#define SIMPLE_PLAYER_H
+
 #include <media/stagefright/foundation/AHandler.h>
 #include <media/stagefright/foundation/AString.h>
 #include <utils/KeyedVector.h>
@@ -126,3 +129,6 @@ private:
 };
 
 }  // namespace android
+
+#endif // SIMPLE_PLAYER_H
+

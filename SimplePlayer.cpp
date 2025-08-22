@@ -16,12 +16,8 @@
 
 //#define LOG_NDEBUG 0
 #define LOG_TAG "SimplePlayer"
-#include <utils/Log.h>
-
-#include "SimplePlayer.h"
 
 #include <gui/Surface.h>
-
 #include <media/AudioTrack.h>
 #include <mediadrm/ICrypto.h>
 #include <media/IMediaHTTPService.h>
@@ -32,6 +28,9 @@
 #include <media/stagefright/MediaCodec.h>
 #include <media/stagefright/MediaErrors.h>
 #include <media/stagefright/NuMediaExtractor.h>
+#include <utils/Log.h>
+
+#include "SimplePlayer.h"
 
 namespace android {
 
